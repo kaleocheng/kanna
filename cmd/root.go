@@ -22,15 +22,18 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"time"
 
+	"github.com/kaleocheng/kanna/cmd/run"
+	"github.com/kaleocheng/kanna/cmd/watcher"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var (
 	watchPath string
-	command   string
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -45,12 +48,24 @@ and if any files change, Kanna will automatically restart with your command.`,
 			return
 		}
 
-		if len(args) != 1 {
-			fmt.Println("Too much command")
-			return
+		command := args[0]
+		arg := args[1:]
+		watcher, err := watcher.NewRecursiveWatcher(viper.GetString("path"), 1*time.Second)
+		if err != nil {
+			log.Fatal(err)
 		}
+		watcher.Run()
+		defer watcher.Close()
 
-		command = args[0]
+		run.Start(command, arg)
+		//out:
+		for {
+			select {
+			case <-watcher.Files:
+				//fmt.Println("File change ", file)
+				run.Restart(command, arg)
+			}
+		}
 	},
 }
 
