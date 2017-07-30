@@ -24,25 +24,19 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 )
 
 var cmd *exec.Cmd
 
+// Start starts the cmd proess
 func Start(command string, args []string) {
-	c := command
-	a := args
-	commandSlice := strings.Split(command, " ")
-	if len(commandSlice) > 1 {
-		c = commandSlice[0]
-		a = commandSlice[1:]
-	}
-	cmd = exec.Command(c, a...)
+	cmd = exec.Command(command, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	go cmd.Run()
 }
 
+// Kill kills the running cmd process
 func Kill() {
 	defer func() {
 		if e := recover(); e != nil {
@@ -57,6 +51,7 @@ func Kill() {
 	}
 }
 
+// Restart kills the running cmd process and then starts it again
 func Restart(command string, args []string) {
 	log.Println("Restarting: ", command, args)
 	Kill()

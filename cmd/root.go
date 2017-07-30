@@ -24,12 +24,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
-	"github.com/kaleocheng/kanna/cmd/run"
-	"github.com/kaleocheng/kanna/cmd/watcher"
+	"github.com/kaleocheng/kanna/run"
+	"github.com/kaleocheng/kanna/watcher"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -44,28 +44,20 @@ var RootCmd = &cobra.Command{
 and if any files change, Kanna will automatically restart with your command.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
-			fmt.Println("Give me a command!")
+			fmt.Println("kanna --help")
 			return
 		}
 
-		command := args[0]
-		arg := args[1:]
-		watcher, err := watcher.NewRecursiveWatcher(viper.GetString("path"), 1*time.Second)
-		if err != nil {
-			log.Fatal(err)
-		}
-		watcher.Run()
-		defer watcher.Close()
+		c := args[0]
+		a := args[1:]
 
-		run.Start(command, arg)
-		//out:
-		for {
-			select {
-			case <-watcher.Files:
-				//fmt.Println("File change ", file)
-				run.Restart(command, arg)
-			}
+		if len(args) == 1 {
+			cs := strings.Split(args[0], " ")
+			c = cs[0]
+			a = cs[1:]
 		}
+
+		start(c, a, watchPath, 1*time.Second)
 	},
 }
 
@@ -79,14 +71,23 @@ func Execute() {
 }
 
 func init() {
-	//cobra.OnInitialize(initConfig)
 	cobra.OnInitialize()
 	RootCmd.PersistentFlags().StringVarP(&watchPath, "path", "p", "./", "path which you want to wath")
-
-	viper.BindPFlag("path", RootCmd.PersistentFlags().Lookup("path"))
 }
 
-// initConfig reads in config file and ENV variables if set.
-//func initConfig() {
+func start(cmd string, args []string, path string, interval time.Duration) {
+	watcher, err := watcher.NewRecursiveWatcher(path, interval)
+	if err != nil {
+		log.Fatal(err)
+	}
+	go watcher.Run()
+	defer watcher.Close()
 
-//}
+	run.Start(cmd, args)
+	for {
+		select {
+		case <-watcher.Files:
+			run.Restart(cmd, args)
+		}
+	}
+}

@@ -31,12 +31,14 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+// RecursiveWatcher is a fsnotify watcher with recursice
 type RecursiveWatcher struct {
 	*fsnotify.Watcher
 	interval time.Duration
 	Files    chan []string
 }
 
+// NewRecursiveWatcher return a watcher with recursive
 func NewRecursiveWatcher(path string, interval time.Duration) (*RecursiveWatcher, error) {
 	folders := Subfolders(path)
 	if len(folders) == 0 {
@@ -59,6 +61,7 @@ func NewRecursiveWatcher(path string, interval time.Duration) (*RecursiveWatcher
 	return rw, nil
 }
 
+// AddFolder add the folder to watcher
 func (watcher *RecursiveWatcher) AddFolder(folder string) {
 	err := watcher.Add(folder)
 	if err != nil {
@@ -66,46 +69,41 @@ func (watcher *RecursiveWatcher) AddFolder(folder string) {
 	}
 }
 
+// Run starts the watcher
 func (watcher *RecursiveWatcher) Run() {
-	go func() {
-		tick := time.Tick(watcher.interval)
-		names := make([]string, 0)
-		for {
-			select {
-			case event := <-watcher.Events:
-				if event.Op&fsnotify.Create == fsnotify.Create {
-					fi, err := os.Stat(event.Name)
-					if err != nil {
-						log.Println(err)
-						break
-					}
-					if fi.IsDir() {
-						if !shouldIgnoreFile(filepath.Base(event.Name)) {
-							watcher.AddFolder(event.Name)
-						}
-					}
+	tick := time.Tick(watcher.interval)
+	names := make([]string, 0)
+	for {
+		select {
+		case event := <-watcher.Events:
+			if event.Op&fsnotify.Create == fsnotify.Create {
+				if !shouldIgnoreFolder(event.Name) {
+					watcher.AddFolder(event.Name)
 				}
-
-				if event.Op&fsnotify.Write == fsnotify.Write {
-
-					if !shouldIgnoreFile(event.Name) {
-						names = append(names, event.Name)
-					}
-				}
-
-			case <-tick:
-				if len(names) == 0 {
-					continue
-				}
-				watcher.Files <- names
-				names = make([]string, 0)
-			case err := <-watcher.Errors:
-				log.Println("error ", err)
 			}
+
+			if event.Op&fsnotify.Write == fsnotify.Write {
+				if !shouldIgnoreFile(event.Name) {
+					names = append(names, event.Name)
+				}
+			}
+
+		// Some editors write file twice (or more) when you save the file,
+		// then it hits the watcher twice. To fix this, use a tick to
+		// cache the fsnotify events during the interval.
+		case <-tick:
+			if len(names) == 0 {
+				continue
+			}
+			watcher.Files <- names
+			names = make([]string, 0)
+		case err := <-watcher.Errors:
+			log.Println("error ", err)
 		}
-	}()
+	}
 }
 
+// Subfolders returns a slice of subfolders (recursive), including the folder provided
 func Subfolders(path string) (paths []string) {
 	filepath.Walk(path, func(newPath string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -126,4 +124,17 @@ func Subfolders(path string) (paths []string) {
 
 func shouldIgnoreFile(name string) bool {
 	return strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || name == "kanna"
+}
+
+func shouldIgnoreFolder(path string) bool {
+	basePath := filepath.Base(path)
+	fi, err := os.Stat(path)
+	if err != nil {
+		log.Println(err)
+		return true
+	}
+	if fi.IsDir() && !shouldIgnoreFile(basePath) {
+		return false
+	}
+	return true
 }
