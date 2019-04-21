@@ -8,7 +8,7 @@ so if any files change, Kanna automatically restarts your command.
 
 ### Install
 ```bash
-go get github.com/KaleoCheng/kanna
+go get github.com/kaleocheng/kanna
 ```
 ### Usage
 ```bash
