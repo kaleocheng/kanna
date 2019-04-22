@@ -24,6 +24,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"syscall"
 )
 
 var cmd *exec.Cmd
@@ -33,6 +34,7 @@ func Start(command string, args []string) {
 	cmd = exec.Command(command, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	go cmd.Run()
 }
 
@@ -43,12 +45,13 @@ func Kill() {
 			log.Printf("Kill recover: %s", e)
 		}
 	}()
-	if cmd != nil && cmd.Process != nil {
-		err := cmd.Process.Kill()
-		if err != nil {
-			log.Println(err)
-		}
+
+	pgid, err := syscall.Getpgid(cmd.Process.Pid)
+	if err == nil {
+		syscall.Kill(-pgid, 15) // note the minus sign
 	}
+
+	cmd.Wait()
 }
 
 // Restart kills the running cmd process and then starts it again
