@@ -24,6 +24,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"syscall"
 )
 
@@ -35,6 +36,16 @@ func Start(command string, args []string) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		for sig := range c {
+			if sig == syscall.SIGINT {
+				Kill()
+				os.Exit(0)
+			}
+		}
+	}()
 	go cmd.Run()
 }
 
