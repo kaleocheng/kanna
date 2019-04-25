@@ -123,7 +123,8 @@ func Subfolders(path string) (paths []string) {
 }
 
 func shouldIgnoreFile(name string) bool {
-	return strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || name == "kanna"
+	realname := strings.TrimPrefix(name, "./")
+	return strings.HasPrefix(realname, ".") || strings.HasPrefix(name, "_") || name == "kanna"
 }
 
 func shouldIgnoreFolder(path string) bool {
