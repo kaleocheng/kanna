@@ -1,6 +1,6 @@
 # Kanna
 
-Kanna is a sample tool inspired by nodemon. It watches the files in the directory in where Kanna started or by your specify, 
+Kanna is a tiny tool inspired by nodemon. It watches the files in the directory in where Kanna started or by your specify, 
 so if any files change, Kanna automatically restarts your command.
 
 
